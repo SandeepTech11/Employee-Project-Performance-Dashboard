@@ -1,6 +1,8 @@
 # 📊 Employee & Project Performance Dashboard
 
-An interactive, full-stack analytics application built with **Python (Flask)**, **SQLite3 (SQL)**, **HTML5**, **CSS3**.
+![Employee & Project Performance Dashboard Preview](docs/dashboard_preview.png)
+
+An interactive, full-stack analytics application built with **Python (Flask)**, **SQLite3 (SQL)**, **HTML5**, **CSS3**, and **JavaScript**.
 
 Designed to deliver multi-dataset enterprise insights including **Employee & Project Performance**, **E-Commerce & Global Revenue**, and **SaaS Product Growth & ARR**.
 
