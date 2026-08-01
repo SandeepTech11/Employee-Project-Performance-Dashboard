@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee & Project Performance Dashboard</title>
+    <meta name="description" content="Employee & Project Performance Dashboard: Python, SQL (SQLite), and HTML Analytics Dashboard featuring interactive slicers, charts, metrics, and custom dataset upload options.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Top Navigation / Header -->
+        <header class="navbar">
+            <div class="nav-brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>Employee & Project <span>Performance Dashboard</span></h1>
+                </div>
+            </div>
+
+            <div class="nav-actions">
+                <!-- Dataset Switcher -->
+                <div class="dataset-switcher-wrapper">
+                    <label for="datasetSelect"><i class="fa-solid fa-server"></i> Select Dataset:</label>
+                    <select id="datasetSelect" class="custom-select">
+                        {% for ds in datasets %}
+                        <option value="{{ ds.id }}">{{ ds.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Add Dataset Button -->
+                <button id="btnOpenUploadModal" class="btn btn-primary btn-glow">
+                    <i class="fa-solid fa-plus"></i> Add New Dataset
+                </button>
+
+                <!-- Reset Filters Button -->
+                <button id="btnResetFilters" class="btn btn-secondary" title="Reset all slicers">
+                    <i class="fa-solid fa-rotate-left"></i> Reset
+                </button>
+
+                <!-- Export CSV Button -->
+                <button id="btnExportCSV" class="btn btn-outline" title="Export filtered view as CSV">
+                    <i class="fa-solid fa-file-export"></i> Export CSV
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Workspace -->
+        <main class="dashboard-main">
+            <!-- Active Dataset Banner -->
+            <div class="dataset-info-banner" id="datasetBanner">
+                <div class="banner-content">
+                    <div class="banner-badge" id="bannerBadge"><i class="fa-solid fa-circle-check"></i> Active Workspace</div>
+                    <h2 id="bannerTitle">Employee & Project Performance</h2>
+                    <p id="bannerDesc">Analyzing project timelines, department budget allocation, performance scores, and team effort.</p>
+                </div>
+                <div class="banner-meta">
+                    <span id="recordCountMeta"><i class="fa-solid fa-table-list"></i> Live Database Connected</span>
+                    <span id="lastUpdatedMeta"><i class="fa-solid fa-clock"></i> Realtime Sync</span>
+                </div>
+            </div>
+
+            <!-- Slicers Bar (Filters) -->
+            <section class="slicers-container">
+                <div class="slicers-header">
+                    <h3><i class="fa-solid fa-filter"></i> Interactive Slicers & Filters</h3>
+                    <span class="active-filter-tag" id="activeFiltersCount">Loading...</span>
+                </div>
+
+                <div class="slicers-grid">
+                    <!-- Search Input -->
+                    <div class="slicer-item slicer-search">
+                        <label for="searchFilter"><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+                        <div class="search-input-wrapper">
+                            <input type="text" id="searchFilter" placeholder="Search title, description, category..." autocomplete="off">
+                            <button id="btnClearSearch" class="btn-clear" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Category / Department Slicer -->
+                    <div class="slicer-item">
+                        <label for="categoryFilter" id="lblCategorySlicer"><i class="fa-solid fa-building"></i> Category / Group</label>
+                        <select id="categoryFilter" class="custom-select">
+                            <option value="ALL">All Groups</option>
+                        </select>
+                    </div>
+
+                    <!-- Status Slicer -->
+                    <div class="slicer-item">
+                        <label for="statusFilter"><i class="fa-solid fa-list-check"></i> Status</label>
+                        <select id="statusFilter" class="custom-select">
+                            <option value="ALL">All Statuses</option>
+                        </select>
+                    </div>
+
+                    <!-- Priority Slicer -->
+                    <div class="slicer-item">
+                        <label for="priorityFilter"><i class="fa-solid fa-layer-group"></i> Priority / Level</label>
+                        <select id="priorityFilter" class="custom-select">
+                            <option value="ALL">All Priorities</option>
+                            <option value="High">High Priority</option>
+                            <option value="Medium">Medium Priority</option>
+                            <option value="Low">Low Priority</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Range Slicers -->
+                    <div class="slicer-item slicer-date-group">
+                        <label><i class="fa-regular fa-calendar-days"></i> Timeline Range</label>
+                        <div class="date-inputs">
+                            <input type="date" id="startDateFilter" title="Start Date">
+                            <span>to</span>
+                            <input type="date" id="endDateFilter" title="End Date">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- KPI Metric Cards Grid -->
+            <section class="kpi-grid">
+                <!-- KPI Card 1: Total Budget / Metric -->
+                <div class="kpi-card" id="kpiCardBudget">
+                    <div class="kpi-icon icon-emerald">
+                        <i class="fa-solid fa-sack-dollar"></i>
+                    </div>
+                    <div class="kpi-details">
+                        <span class="kpi-label" id="kpiLabel1">Total Project Budget</span>
+                        <h2 class="kpi-value" id="kpiVal1">$0</h2>
+                        <div class="kpi-trend trend-up" id="kpiTrend1">
+                            <i class="fa-solid fa-chart-line"></i> <span id="kpiSub1">Total Budget Allocated</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI Card 2: Total Items / Projects -->
+                <div class="kpi-card" id="kpiCardCount">
+                    <div class="kpi-icon icon-violet">
+                        <i class="fa-solid fa-diagram-project"></i>
+                    </div>
+                    <div class="kpi-details">
+                        <span class="kpi-label" id="kpiLabel2">Total Records</span>
+                        <h2 class="kpi-value" id="kpiVal2">0</h2>
+                        <div class="kpi-trend trend-neutral" id="kpiTrend2">
+                            <i class="fa-solid fa-list-check"></i> <span id="kpiSub2">Total Projects Tracked</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI Card 3: Avg Performance / Score -->
+                <div class="kpi-card" id="kpiCardScore">
+                    <div class="kpi-icon icon-amber">
+                        <i class="fa-solid fa-star"></i>
+                    </div>
+                    <div class="kpi-details">
+                        <span class="kpi-label" id="kpiLabel3">Avg Performance Score</span>
+                        <h2 class="kpi-value" id="kpiVal3">0.0 / 100</h2>
+                        <div class="kpi-trend trend-up" id="kpiTrend3">
+                            <i class="fa-solid fa-shield-halved"></i> <span id="kpiSub3">Average Quality Rating</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI Card 4: Hours Logged / Effort -->
+                <div class="kpi-card" id="kpiCardHours">
+                    <div class="kpi-icon icon-cyan">
+                        <i class="fa-solid fa-user-clock"></i>
+                    </div>
+                    <div class="kpi-details">
+                        <span class="kpi-label" id="kpiLabel4">Total Hours Logged</span>
+                        <h2 class="kpi-value" id="kpiVal4">0 hrs</h2>
+                        <div class="kpi-trend trend-up" id="kpiTrend4">
+                            <i class="fa-solid fa-bolt"></i> <span id="kpiSub4">Total Effort Logged</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Visualizations Grid -->
+            <section class="charts-grid">
+                <!-- Chart 1: Donut / Pie Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h4><i class="fa-solid fa-chart-pie"></i> Status Split (Pie Chart)</h4>
+                            <p class="chart-subtitle">Proportion of projects grouped by current status</p>
+                        </div>
+                        <div class="chart-badge">Pie / Donut</div>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="pieChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Bar Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h4><i class="fa-solid fa-chart-column"></i> Budget by Category (Bar Chart)</h4>
+                            <p class="chart-subtitle">Budget allocation across departments and categories</p>
+                        </div>
+                        <div class="chart-badge">Bar Graph</div>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="barChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 3: Line Trend Chart -->
+                <div class="chart-card chart-card-wide">
+                    <div class="chart-header">
+                        <div>
+                            <h4><i class="fa-solid fa-chart-line"></i> Performance Score Timeline</h4>
+                            <p class="chart-subtitle">Quality performance score trend over project dates</p>
+                        </div>
+                        <div class="chart-badge">Line Trend</div>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="lineChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 4: Priority Breakdown -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h4><i class="fa-solid fa-layer-group"></i> Priority Breakdown</h4>
+                            <p class="chart-subtitle">Project breakdown by urgency and priority level</p>
+                        </div>
+                        <div class="chart-badge">Horizontal Bar</div>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="priorityChartCanvas"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data Table Section -->
+            <section class="table-section">
+                <div class="table-header">
+                    <div class="table-title">
+                        <h3><i class="fa-solid fa-table"></i> Detailed Project Records</h3>
+                        <span id="showingRecordsInfo">Showing 0 records</span>
+                    </div>
+                    <div class="table-controls">
+                        <label for="pageSizeSelect">Rows per page:</label>
+                        <select id="pageSizeSelect" class="custom-select select-sm">
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="data-table" id="projectsTable">
+                        <thead>
+                            <tr>
+                                <th data-sort="id">ID <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="title">Title <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="category">Category <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="status">Status <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="priority">Priority <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="start_date">Start Date <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="deadline">Deadline <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="budget" class="text-right">Budget <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="score" class="text-right">Score <i class="fa-solid fa-sort"></i></th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Table Pagination -->
+                <div class="table-pagination">
+                    <div class="pagination-info" id="paginationInfo">Page 1 of 1</div>
+                    <div class="pagination-buttons" id="paginationButtons">
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Upload Custom Dataset Modal -->
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-database"></i> Add Dataset for Another Project</h3>
+                <button class="modal-close" id="btnCloseUploadModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <p class="modal-desc">Upload a CSV or JSON file. The Python server will create a new SQL table in SQLite dynamically and generate the exact dashboard views for your new project!</p>
+
+                    <div class="dropzone" id="fileDropzone">
+                        <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+                        <h4 id="dropzoneText">Drag & Drop your CSV or JSON file here</h4>
+                        <p>or click to browse files</p>
+                        <input type="file" id="fileInput" name="file" accept=".csv,.json" hidden required>
+                    </div>
+
+                    <div class="mapping-grid" style="margin-top:16px;">
+                        <div class="form-group">
+                            <label for="customDatasetName">Dataset Name</label>
+                            <input type="text" id="customDatasetName" name="name" placeholder="e.g. Q4 Marketing Campaign" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="categoryLabelInput">Category Column Label</label>
+                            <input type="text" id="categoryLabelInput" name="category_label" value="Category">
+                        </div>
+                        <div class="form-group">
+                            <label for="metricLabelInput">Metric Value Label</label>
+                            <input type="text" id="metricLabelInput" name="metric_label" value="Budget">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btnCancelModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btnSubmitUpload">
+                        <i class="fa-solid fa-gears"></i> Build Dashboard
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-card modal-card-md">
+            <div class="modal-header">
+                <h3 id="detailModalTitle"><i class="fa-solid fa-folder-open"></i> Record Details</h3>
+                <button class="modal-close" id="btnCloseDetailModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" id="detailModalBody">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCloseDetailModalFooter">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const state = {
+                dataset: 'employee_projects',
+                search: '',
+                category: 'ALL',
+                status: 'ALL',
+                priority: 'ALL',
+                start_date: '',
+                end_date: '',
+                page: 1,
+                pageSize: 10,
+                sortCol: 'id',
+                sortDir: 'asc',
+                records: [],
+                charts: {}
+            };
+
+            const elements = {
+                datasetSelect: document.getElementById('datasetSelect'),
+                searchFilter: document.getElementById('searchFilter'),
+                btnClearSearch: document.getElementById('btnClearSearch'),
+                categoryFilter: document.getElementById('categoryFilter'),
+                statusFilter: document.getElementById('statusFilter'),
+                priorityFilter: document.getElementById('priorityFilter'),
+                startDateFilter: document.getElementById('startDateFilter'),
+                endDateFilter: document.getElementById('endDateFilter'),
+                btnResetFilters: document.getElementById('btnResetFilters'),
+                btnExportCSV: document.getElementById('btnExportCSV'),
+                
+                bannerTitle: document.getElementById('bannerTitle'),
+                bannerDesc: document.getElementById('bannerDesc'),
+                recordCountMeta: document.getElementById('recordCountMeta'),
+                activeFiltersCount: document.getElementById('activeFiltersCount'),
+
+                kpiLabel1: document.getElementById('kpiLabel1'),
+                kpiVal1: document.getElementById('kpiVal1'),
+                kpiVal2: document.getElementById('kpiVal2'),
+                kpiVal3: document.getElementById('kpiVal3'),
+                kpiVal4: document.getElementById('kpiVal4'),
+
+                tableBody: document.getElementById('tableBody'),
+                pageSizeSelect: document.getElementById('pageSizeSelect'),
+                showingRecordsInfo: document.getElementById('showingRecordsInfo'),
+                paginationInfo: document.getElementById('paginationInfo'),
+                paginationButtons: document.getElementById('paginationButtons'),
+
+                uploadModal: document.getElementById('uploadModal'),
+                btnOpenUploadModal: document.getElementById('btnOpenUploadModal'),
+                btnCloseUploadModal: document.getElementById('btnCloseUploadModal'),
+                btnCancelModal: document.getElementById('btnCancelModal'),
+                uploadForm: document.getElementById('uploadForm'),
+                fileDropzone: document.getElementById('fileDropzone'),
+                fileInput: document.getElementById('fileInput'),
+                dropzoneText: document.getElementById('dropzoneText'),
+
+                detailModal: document.getElementById('detailModal'),
+                btnCloseDetailModal: document.getElementById('btnCloseDetailModal'),
+                btnCloseDetailModalFooter: document.getElementById('btnCloseDetailModalFooter'),
+                detailModalTitle: document.getElementById('detailModalTitle'),
+                detailModalBody: document.getElementById('detailModalBody')
+            };
+
+            elements.datasetSelect.addEventListener('change', (e) => {
+                state.dataset = e.target.value;
+                state.page = 1;
+                fetchData();
+            });
+
+            elements.searchFilter.addEventListener('input', (e) => {
+                state.search = e.target.value.trim();
+                elements.btnClearSearch.style.display = state.search ? 'block' : 'none';
+                state.page = 1;
+                fetchData();
+            });
+
+            elements.btnClearSearch.addEventListener('click', () => {
+                elements.searchFilter.value = '';
+                state.search = '';
+                elements.btnClearSearch.style.display = 'none';
+                state.page = 1;
+                fetchData();
+            });
+
+            elements.categoryFilter.addEventListener('change', (e) => {
+                state.category = e.target.value;
+                state.page = 1;
+                fetchData();
+            });
+
+            elements.statusFilter.addEventListener('change', (e) => {
+                state.status = e.target.value;
+                state.page = 1;
+                fetchData();
+            });
+
+            elements.priorityFilter.addEventListener('change', (e) => {
+                state.priority = e.target.value;
+                state.page = 1;
+                fetchData();
+            });
+
+            elements.startDateFilter.addEventListener('change', (e) => {
+                state.start_date = e.target.value;
+                state.page = 1;
+                fetchData();
+            });
+
+            elements.endDateFilter.addEventListener('change', (e) => {
+                state.end_date = e.target.value;
+                state.page = 1;
+                fetchData();
+            });
+
+            elements.btnResetFilters.addEventListener('click', () => {
+                state.search = '';
+                state.category = 'ALL';
+                state.status = 'ALL';
+                state.priority = 'ALL';
+                state.start_date = '';
+                state.end_date = '';
+                state.page = 1;
+
+                elements.searchFilter.value = '';
+                elements.btnClearSearch.style.display = 'none';
+                elements.categoryFilter.value = 'ALL';
+                elements.statusFilter.value = 'ALL';
+                elements.priorityFilter.value = 'ALL';
+                elements.startDateFilter.value = '';
+                elements.endDateFilter.value = '';
+
+                fetchData();
+            });
+
+            elements.btnExportCSV.addEventListener('click', () => {
+                window.location.href = `/export_csv?dataset=${state.dataset}`;
+            });
+
+            elements.pageSizeSelect.addEventListener('change', (e) => {
+                state.pageSize = parseInt(e.target.value, 10);
+                state.page = 1;
+                renderTable();
+            });
+
+            document.querySelectorAll('.data-table th[data-sort]').forEach(th => {
+                th.addEventListener('click', () => {
+                    const col = th.getAttribute('data-sort');
+                    if (state.sortCol === col) {
+                        state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        state.sortCol = col;
+                        state.sortDir = 'asc';
+                    }
+                    renderTable();
+                });
+            });
+
+            elements.btnOpenUploadModal.addEventListener('click', () => elements.uploadModal.classList.add('active'));
+            elements.btnCloseUploadModal.addEventListener('click', () => elements.uploadModal.classList.remove('active'));
+            elements.btnCancelModal.addEventListener('click', () => elements.uploadModal.classList.remove('active'));
+
+            elements.fileDropzone.addEventListener('click', () => elements.fileInput.click());
+            elements.fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    elements.dropzoneText.textContent = `Selected: ${e.target.files[0].name}`;
+                }
+            });
+
+            elements.uploadForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(elements.uploadForm);
+
+                fetch('/upload_dataset', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert(`Dataset '${data.name}' uploaded successfully with ${data.record_count} records!`);
+                        elements.uploadModal.classList.remove('active');
+                        
+                        const opt = document.createElement('option');
+                        opt.value = data.dataset_id;
+                        opt.textContent = `📁 ${data.name}`;
+                        elements.datasetSelect.appendChild(opt);
+                        elements.datasetSelect.value = data.dataset_id;
+                        state.dataset = data.dataset_id;
+                        fetchData();
+                    }
+                })
+                .catch(err => alert('Upload failed: ' + err));
+            });
+
+            elements.btnCloseDetailModal.addEventListener('click', () => elements.detailModal.classList.remove('active'));
+            elements.btnCloseDetailModalFooter.addEventListener('click', () => elements.detailModal.classList.remove('active'));
+
+            function fetchData() {
+                const params = new URLSearchParams({
+                    dataset: state.dataset,
+                    search: state.search,
+                    category: state.category,
+                    status: state.status,
+                    priority: state.priority,
+                    start_date: state.start_date,
+                    end_date: state.end_date
+                });
+
+                fetch(`/api/query?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        updateUI(data);
+                    })
+                    .catch(err => console.error('Fetch error:', err));
+            }
+
+            function updateUI(data) {
+                elements.bannerTitle.textContent = data.meta.name;
+                elements.bannerDesc.textContent = data.meta.subtitle;
+                elements.kpiLabel1.textContent = `Total ${data.meta.metric_label}`;
+                elements.recordCountMeta.innerHTML = `<i class="fa-solid fa-table-list"></i> ${data.records.length} Records Loaded`;
+
+                if (elements.categoryFilter.options.length <= 1 || state.category === 'ALL') {
+                    const currentVal = state.category;
+                    elements.categoryFilter.innerHTML = `<option value="ALL">All ${data.meta.category_label}s</option>`;
+                    data.slicers.categories.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c;
+                        opt.textContent = c;
+                        elements.categoryFilter.appendChild(opt);
+                    });
+                    elements.categoryFilter.value = currentVal;
+                }
+
+                if (elements.statusFilter.options.length <= 1 || state.status === 'ALL') {
+                    const currentVal = state.status;
+                    elements.statusFilter.innerHTML = '<option value="ALL">All Statuses</option>';
+                    data.slicers.statuses.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s;
+                        opt.textContent = s;
+                        elements.statusFilter.appendChild(opt);
+                    });
+                    elements.statusFilter.value = currentVal;
+                }
+
+                elements.kpiVal1.textContent = `${data.meta.metric_prefix || '$'}${data.kpis.total_budget.toLocaleString()}`;
+                elements.kpiVal2.textContent = data.kpis.total_count;
+                elements.kpiVal3.textContent = `${data.kpis.avg_score} / 100`;
+                elements.kpiVal4.textContent = `${data.kpis.total_hours.toLocaleString()} hrs`;
+
+                elements.activeFiltersCount.textContent = `Showing ${data.records.length} Filtered Records`;
+
+                state.records = data.records;
+                renderCharts(data.charts);
+                renderTable();
+            }
+
+            function renderCharts(chartData) {
+                const colors = ['#8B5CF6', '#6366F1', '#10B981', '#F59E0B', '#06B6D4', '#EC4899', '#3B82F6'];
+
+                const pieLabels = chartData.status_pie.map(d => d.status);
+                const pieValues = chartData.status_pie.map(d => d.cnt);
+
+                if (state.charts.pie) state.charts.pie.destroy();
+                state.charts.pie = new Chart(document.getElementById('pieChartCanvas').getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: pieLabels,
+                        datasets: [{ data: pieValues, backgroundColor: colors.slice(0, pieLabels.length), borderWidth: 2, borderColor: '#111726' }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } }, cutout: '65%' }
+                });
+
+                const barLabels = chartData.category_bar.map(d => d.category);
+                const barValues = chartData.category_bar.map(d => d.total_budget);
+
+                if (state.charts.bar) state.charts.bar.destroy();
+                state.charts.bar = new Chart(document.getElementById('barChartCanvas').getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: barLabels,
+                        datasets: [{ label: 'Budget', data: barValues, backgroundColor: 'rgba(139, 92, 246, 0.75)', borderRadius: 6 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+
+                const sorted = [...state.records].sort((a,b) => (a.start_date||'').localeCompare(b.start_date||''));
+                if (state.charts.line) state.charts.line.destroy();
+                state.charts.line = new Chart(document.getElementById('lineChartCanvas').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: sorted.map(r => r.start_date || 'N/A'),
+                        datasets: [{ label: 'Score', data: sorted.map(r => r.score || 0), borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+
+                const prioLabels = chartData.priority_bar.map(d => d.priority);
+                const prioValues = chartData.priority_bar.map(d => d.cnt);
+                if (state.charts.priority) state.charts.priority.destroy();
+                state.charts.priority = new Chart(document.getElementById('priorityChartCanvas').getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: prioLabels,
+                        datasets: [{ data: prioValues, backgroundColor: ['#EF4444', '#F59E0B', '#10B981'], borderRadius: 4 }]
+                    },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+            }
+
+            function renderTable() {
+                let records = [...state.records];
+
+                records.sort((a, b) => {
+                    let valA = a[state.sortCol];
+                    let valB = b[state.sortCol];
+                    if (typeof valA === 'string') valA = valA.toLowerCase();
+                    if (typeof valB === 'string') valB = valB.toLowerCase();
+                    if (valA < valB) return state.sortDir === 'asc' ? -1 : 1;
+                    if (valA > valB) return state.sortDir === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                const total = records.length;
+                const totalPages = Math.ceil(total / state.pageSize) || 1;
+                if (state.page > totalPages) state.page = totalPages;
+
+                const startIdx = (state.page - 1) * state.pageSize;
+                const pageRecords = records.slice(startIdx, startIdx + state.pageSize);
+
+                elements.tableBody.innerHTML = '';
+                if (pageRecords.length === 0) {
+                    elements.tableBody.innerHTML = '<tr><td colspan="10" class="text-center" style="padding:40px; color:var(--text-muted);">No records match the current slicers.</td></tr>';
+                } else {
+                    pageRecords.forEach(r => {
+                        const tr = document.createElement('tr');
+                        let stClass = 'status-inprogress';
+                        const st = (r.status || '').toLowerCase();
+                        if (st.includes('complete') || st.includes('deliver') || st.includes('avail')) stClass = 'status-completed';
+                        else if (st.includes('delay') || st.includes('return')) stClass = 'status-delayed';
+
+                        tr.innerHTML = `
+                            <td><strong>#${r.id}</strong></td>
+                            <td><div style="font-weight:600;">${r.title}</div><div style="font-size:11px; color:var(--text-muted);">${(r.description||'').substring(0,50)}...</div></td>
+                            <td>${r.category}</td>
+                            <td><span class="badge-status ${stClass}">${r.status}</span></td>
+                            <td><span class="badge-priority priority-${(r.priority||'medium').toLowerCase()}">${r.priority}</span></td>
+                            <td style="font-family:var(--font-mono); font-size:12px;">${r.start_date || '-'}</td>
+                            <td style="font-family:var(--font-mono); font-size:12px;">${r.deadline || '-'}</td>
+                            <td class="text-right score-num">$${(r.budget || 0).toLocaleString()}</td>
+                            <td class="text-right score-num">${r.score || '-'}</td>
+                            <td class="text-center"><button class="btn btn-sm btn-secondary btn-view" data-id="${r.id}"><i class="fa-solid fa-eye"></i> View</button></td>
+                        `;
+
+                        tr.querySelector('.btn-view').addEventListener('click', () => showDetail(r));
+                        elements.tableBody.appendChild(tr);
+                    });
+                }
+
+                elements.showingRecordsInfo.textContent = total > 0 ? `Showing ${startIdx + 1}-${Math.min(startIdx + state.pageSize, total)} of ${total} records` : 'Showing 0 records';
+                elements.paginationInfo.textContent = `Page ${state.page} of ${totalPages}`;
+            }
+
+            function showDetail(r) {
+                elements.detailModalTitle.innerHTML = `<i class="fa-solid fa-folder-open"></i> #${r.id} - ${r.title}`;
+                elements.detailModalBody.innerHTML = `
+                    <div class="detail-grid">
+                        <div class="detail-item"><div class="lbl">Category</div><div class="val">${r.category}</div></div>
+                        <div class="detail-item"><div class="lbl">Status</div><div class="val">${r.status}</div></div>
+                        <div class="detail-item"><div class="lbl">Priority</div><div class="val">${r.priority}</div></div>
+                        <div class="detail-item"><div class="lbl">Budget</div><div class="val">$${(r.budget||0).toLocaleString()}</div></div>
+                        <div class="detail-item"><div class="lbl">Score</div><div class="val">${r.score||'N/A'} / 100</div></div>
+                        <div class="detail-item"><div class="lbl">Hours Logged</div><div class="val">${r.hours_logged||0} hrs</div></div>
+                    </div>
+                    <div style="margin-top:14px;"><p style="font-size:13px; background:var(--bg-input); padding:12px; border-radius:4px;">${r.description || 'No description.'}</p></div>
+                `;
+                elements.detailModal.classList.add('active');
+            }
+
+            fetchData();
+        });
+    </script>
+</body>
+</html>
